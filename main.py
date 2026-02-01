@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = 123456789  # ← ĐỔI ID ADMIN Ở ĐÂY
+ADMIN_ID = 8572604188  # ← ĐỔI ID ADMIN Ở ĐÂY
 DATA_FILE = "data.json"
 
 
