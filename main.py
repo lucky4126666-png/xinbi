@@ -1,43 +1,43 @@
 import json
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from telegram.ext import (
     Application,
+    CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
-    CommandHandler,
     ContextTypes,
     filters,
 )
 
+# ================= CONFIG =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = 8572604188   # 🔐 ADMIN DUY NHẤT
+ADMIN_ID = 8572604188
 DATA_FILE = "data.json"
 
-
-# ========= DATA =========
+# ================= DATA =================
 def load_data():
     if not os.path.exists(DATA_FILE):
         return {}
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
-
-def save_data(data):
+def save_data(d):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
+        json.dump(d, f, ensure_ascii=False, indent=2)
 
 data = load_data()
 
-
-# ========= MENUS =========
+# ================= MENUS =================
 def admin_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ Thêm từ khóa", callback_data="add_kw")],
         [InlineKeyboardButton("📌 Danh sách từ khóa", callback_data="list_kw")]
     ])
-
 
 def keyword_menu(key):
     return InlineKeyboardMarkup([
@@ -49,17 +49,18 @@ def keyword_menu(key):
         [InlineKeyboardButton("⬅️ Trở lại", callback_data="back")]
     ])
 
-
-# ========= START =========
+# ================= START =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat.type != "private":
+        return
+
     if update.effective_user.id == ADMIN_ID:
         await update.message.reply_text(
             "⚙️ BẢNG ĐIỀU KHIỂN BOT (ADMIN)",
             reply_markup=admin_menu()
         )
 
-
-# ========= BUTTON HANDLER =========
+# ================= BUTTON HANDLER =================
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -111,13 +112,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         key = cmd.split(":")[1]
         await send_reply(query.message, key)
 
-
-# ========= TEXT ROUTER =========
+# ================= TEXT ROUTER =================
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
+    chat_type = update.message.chat.type
+    user_id = update.effective_user.id
 
-    # ----- ADMIN FLOW -----
-    if update.effective_user.id == ADMIN_ID:
+    # ===== ADMIN SET (CHAT RIÊNG) =====
+    if chat_type == "private" and user_id == ADMIN_ID:
         step = context.user_data.get("step")
 
         if step == "wait_keyword":
@@ -154,15 +156,17 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("✅ Đã thêm nút")
             return
 
-    # ----- USER AUTO REPLY -----
+    # ===== AUTO REPLY (PRIVATE + GROUP) =====
     key = msg.lower()
     if key in data:
         await send_reply(update.message, key)
 
-
-# ========= PHOTO =========
+# ================= PHOTO =================
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
+        return
+
+    if update.message.chat.type != "private":
         return
 
     if context.user_data.get("step") == "wait_image":
@@ -173,8 +177,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         await update.message.reply_text("✅ Đã lưu ảnh")
 
-
-# ========= SEND REPLY =========
+# ================= SEND REPLY =================
 async def send_reply(message, key):
     item = data[key]
 
@@ -185,22 +188,26 @@ async def send_reply(message, key):
         await message.reply_photo(img)
 
     if item["buttons"]:
-        kb = [[InlineKeyboardButton(b["text"], url=b["url"])] for b in item["buttons"]]
-        await message.reply_text("👇 Chọn:", reply_markup=InlineKeyboardMarkup(kb))
+        kb = [
+            [InlineKeyboardButton(b["text"], url=b["url"])]
+            for b in item["buttons"]
+        ]
+        await message.reply_text(
+            "👇 Chọn:",
+            reply_markup=InlineKeyboardMarkup(kb)
+        )
 
-
-# ========= MAIN =========
+# ================= MAIN =================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))          # ✅ FIX QUAN TRỌNG
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
 
     print("🤖 Bot đang chạy...")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
