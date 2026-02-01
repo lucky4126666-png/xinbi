@@ -5,12 +5,13 @@ from telegram.ext import (
     Application,
     CallbackQueryHandler,
     MessageHandler,
+    CommandHandler,
     ContextTypes,
     filters,
 )
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = 8572604188  # ← ĐỔI ID TELEGRAM CỦA BẠN
+ADMIN_ID = 8572604188   # 🔐 ADMIN DUY NHẤT
 DATA_FILE = "data.json"
 
 
@@ -53,7 +54,7 @@ def keyword_menu(key):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == ADMIN_ID:
         await update.message.reply_text(
-            "⚙️ BẢNG ĐIỀU KHIỂN BOT",
+            "⚙️ BẢNG ĐIỀU KHIỂN BOT (ADMIN)",
             reply_markup=admin_menu()
         )
 
@@ -80,13 +81,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(f"🔑 {k}", reply_markup=keyword_menu(k))
 
     elif cmd == "back":
-        await query.message.reply_text("⬅️ Menu", reply_markup=admin_menu())
+        await query.message.reply_text("⬅️ Quay lại", reply_markup=admin_menu())
 
     elif cmd.startswith("text:"):
         key = cmd.split(":")[1]
         context.user_data["step"] = "wait_text"
         context.user_data["key"] = key
-        await query.message.reply_text("✏️ Gửi nội dung:")
+        await query.message.reply_text("✏️ Gửi nội dung mới:")
 
     elif cmd.startswith("img:"):
         key = cmd.split(":")[1]
@@ -98,20 +99,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         key = cmd.split(":")[1]
         context.user_data["step"] = "wait_button"
         context.user_data["key"] = key
-        await query.message.reply_text("🔘 Nhập: Tên | Link")
+        await query.message.reply_text("🔘 Nhập: Tên nút | Link")
 
     elif cmd.startswith("del:"):
         key = cmd.split(":")[1]
         data.pop(key, None)
         save_data(data)
-        await query.message.reply_text("🗑️ Đã xóa")
+        await query.message.reply_text("🗑️ Đã xóa từ khóa")
 
     elif cmd.startswith("preview:"):
         key = cmd.split(":")[1]
         await send_reply(query.message, key)
 
 
-# ========= TEXT ROUTER (FIX LỖI CHÍNH) =========
+# ========= TEXT ROUTER =========
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
 
@@ -192,6 +193,7 @@ async def send_reply(message, key):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
+    app.add_handler(CommandHandler("start", start))          # ✅ FIX QUAN TRỌNG
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
